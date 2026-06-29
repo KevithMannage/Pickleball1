@@ -32,7 +32,15 @@ python detect.py --source xxx.mp4 --weights  xxx.pt --view-img
 Install dependencies first:
 
 ```shell
-python -m pip install -r requirements.txt
+python -m pip install --upgrade pip
+python -m pip install --index-url https://pypi.org/simple -r requirements.txt
+```
+
+The default requirements are for inference. If you need ONNX conversion or
+deployment helpers, install the optional dependencies separately:
+
+```shell
+python -m pip install --index-url https://pypi.org/simple -r requirements-optional.txt
 ```
 
 Run the detector through the monitor wrapper:
