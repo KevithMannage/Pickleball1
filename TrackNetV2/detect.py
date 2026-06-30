@@ -10,6 +10,7 @@ from argparse import ArgumentParser
 
 from models.tracknet import TrackNet
 from utils.general import get_shuttle_position
+from utils.court_detector import OpenCVCourtDetector
 
 # from yolov5 detect.py
 FILE = Path(__file__).resolve()
@@ -63,6 +64,9 @@ def main(opt):
     model = TrackNet().to(device)
     model.load_state_dict(torch.load(f_weights))
     model.eval()
+
+    # Instantiate the modular court detector
+    court_detector = OpenCVCourtDetector()
 
     # import ncnn
     # net = ncnn.Net()
@@ -133,6 +137,10 @@ def main(opt):
             (cx, cy) = (int(cx_pred*w/imgsz[1]), int(cy_pred*h/imgsz[0]))
             if visible:
                 cv2.circle(imgs[i], (cx, cy), 8, (0,0,255), -1)
+
+            # Apply modular court detection on the frame (post-processing)
+            # This returns a new frame with lines drawn on it
+            imgs[i], detected_lines, detected_corners = court_detector.process(imgs[i])
 
             if b_save_txt:
                 f_save_txt.write('{},{},{},{}\n'.format(count, visible, cx, cy))
