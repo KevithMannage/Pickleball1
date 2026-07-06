@@ -23,15 +23,54 @@ class OpenCVCourtDetector(CourtDetector):
     """
     OpenCV implementation of the CourtDetector using traditional computer vision methods.
     """
-    def __init__(self):
+    def __init__(self, roi_vertices=None):
         # Parameters for Hough Lines
         self.hough_threshold = 80
         self.min_line_length = 100
         self.max_line_gap = 30
+
+        # CHANGED: Region of interest (ROI) to exclude background areas
+        # (crowd, banners, sky, grass, sponsor boards) from ever being
+        # considered by Canny/Hough. This is a static camera, so a fixed
+        # ROI polygon is enough -- it does not need to change frame to frame.
+        #
+        # roi_vertices is a list of (x, y) points defining the polygon that
+        # contains the court. If not provided, a default trapezoid is built
+        # the first time process() sees a frame (based on that frame's
+        # width/height), which you can tune below.
+        self.roi_vertices = roi_vertices
+        self._roi_mask = None  # cached mask, built once for speed
         
     def _get_angle(self, line):
         x1, y1, x2, y2 = line
         return math.degrees(math.atan2(y2 - y1, x2 - x1))
+
+    # CHANGED: builds (once) and caches a binary mask that keeps only the
+    # court area and blacks out everything else (crowd stands, banners,
+    # grass margins, sky, scoreboard corners, etc.)
+    def _get_roi_mask(self, frame_shape):
+        h, w = frame_shape[:2]
+
+        if self._roi_mask is not None:
+            return self._roi_mask
+
+        if self.roi_vertices is None:
+            # Default trapezoid: tune these ratios to your camera framing.
+            # This drops the top banner/crowd strip and the far left/right
+            # crowd & grass margins, keeping the court region in the middle.
+            self.roi_vertices = [
+                (int(w * 0.12), int(h * 0.18)),   # top-left
+                (int(w * 0.88), int(h * 0.18)),   # top-right
+                (int(w * 1.00), int(h * 0.95)),   # bottom-right
+                (int(w * 0.00), int(h * 0.95)),   # bottom-left
+            ]
+
+        mask = np.zeros((h, w), dtype=np.uint8)
+        pts = np.array([self.roi_vertices], dtype=np.int32)
+        cv2.fillPoly(mask, pts, 255)
+
+        self._roi_mask = mask
+        return mask
 
     def process(self, frame):
         # Create a copy of the frame so we don't mutate the original directly before returning
@@ -47,6 +86,11 @@ class OpenCVCourtDetector(CourtDetector):
         
         # 3. Apply Canny edge detection
         edges = cv2.Canny(blurred, 50, 150)
+
+        # CHANGED: mask out everything outside the court ROI so background
+        # lines (crowd, banners, grass, sky) never reach HoughLinesP.
+        roi_mask = self._get_roi_mask(frame.shape)
+        edges = cv2.bitwise_and(edges, roi_mask)
         
         # 4. Detect lines using HoughLinesP
         # Ignore very short or weak edges
