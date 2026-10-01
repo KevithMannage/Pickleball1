@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+env/
+
+# Source videos and extracted frames — large, user-supplied, regenerable
+vidoes/*
+!vidoes/.gitkeep
+frames/*
+!frames/.gitkeep
+
+# Inference output — regenerable
+predictions/
+
+# Auto-downloaded zero-shot checkpoint — fetched by infer_video.py on first run
+weights/*
+!weights/.gitkeep
+
+# Claude Code local config
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
